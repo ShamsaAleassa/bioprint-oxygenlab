@@ -369,7 +369,7 @@ footer{background:var(--bg0);border-top:1px solid var(--border);padding:2.5rem 2
       <div class="results-title">Clinical Results Dashboard</div>
 
       <div class="info-box">
-        <div class="lbl">Characteristic length  λ = √(D · K_m / Q_vol)</div>
+        <div class="lbl">Zero-order penetration depth  δ = √(2·D·C_src/Q_vol)  [λ_lin shown in brackets]</div>
         <div class="val" id="lambdaVal">— µm</div>
       </div>
       <div class="info-box">
@@ -860,48 +860,71 @@ function updateDashboard(){
 }
 
 function updateAncillaryUI(){
-  const lambda_m=cfg.Qvol>0?Math.sqrt(cfg.D*cfg.Km/cfg.Qvol)*1e6:Infinity;
-  document.getElementById('lambdaVal').textContent=isFinite(lambda_m)?lambda_m.toFixed(0)+' µm':'∞  (no consumption)';
+  // Zero-order penetration depth δ = √(2·D·C_source/Qvol) — valid when C_source >> Km
+  // (Arterial 200µM >> Km 1.5–3.5µM for all tissue presets, so zero-order regime applies)
+  const delta_um=cfg.Qvol>0?Math.sqrt(2*cfg.D*cfg.Csource/cfg.Qvol)*1e6:Infinity;
+  const lambda_um=cfg.Qvol>0?Math.sqrt(cfg.D*cfg.Km/cfg.Qvol)*1e6:Infinity;
+  document.getElementById('lambdaVal').textContent=
+    isFinite(delta_um)?delta_um.toFixed(0)+' µm  (λ_lin='+lambda_um.toFixed(0)+' µm)':'∞  (no consumption)';
   document.getElementById('qvolVal').textContent=cfg.Qvol.toFixed(2)+' µM/s  (= '+cfg.Qmax_cell+' × '+cfg.density+')';
   document.getElementById('cvesVal').textContent=cfg.Cvessel.toFixed(1)+' µM  ('+(cfg.Cvessel/ALPHA_O2).toFixed(1)+' mmHg)';
 }
 
 // ============================================================
-//  3-D DEPTH ANALYSIS  (analytical 1-D slab)
+//  3-D DEPTH ANALYSIS
+//  Zero-order parabolic model: valid when C_source >> Km
+//  C(z) = C_surf - (Qvol/2D)·(L²/4 − z²)   where z ∈ [−L/2, L/2]
+//  C_center = C_surf − Qvol·L²/(8D)
+//  L_max (viable centre) = √(8D·(C_surf−C_hyp)/Qvol)
 // ============================================================
 function update3DPanel(){
   if(!sim.iter&&!sim.converged) return;
   const L=cfg.thickness*1e-3;  // m
-  const lambda_m=cfg.Qvol>0?Math.sqrt(cfg.D*cfg.Km/cfg.Qvol):1e6;
-  const Cs=computeAvgSurfaceO2();  // representative surface C
-  const Cmin=Cs/Math.cosh(L/(2*lambda_m));
-  const viable_depth_m=Cs>cfg.Chyp? Math.min(L/2, lambda_m*Math.acosh(Cs/cfg.Chyp)):0;
-  const frac_viable=Cs>cfg.Chyp?Math.min(1,2*viable_depth_m/L):0;
-  const nec_depth_m=Cmin<cfg.Cnec&&Cs>cfg.Cnec?lambda_m*Math.acosh(Cs/cfg.Cnec):0;
-  const frac_nec=nec_depth_m>0?Math.max(0,1-2*nec_depth_m/L):0;
-  const max_safe=Cs>cfg.Chyp?2*lambda_m*Math.acosh(Cs/cfg.Chyp)*1e3:0;
+  const Cs=computeAvgSurfaceO2();
+  const Qv=cfg.Qvol, D=cfg.D;
+
+  // Central minimum O₂ (parabolic profile)
+  const Cmin=Math.max(0, Cs - Qv*L*L/(8*D));
+
+  // Viable depth from each surface where C > C_hypoxia
+  // z_crit² = L²/4 − 2D(Cs−Chyp)/Qv  →  viable if z > z_crit
+  const z_crit_sq = L*L/4 - 2*D*(Cs-cfg.Chyp)/Qv;
+  const z_crit = z_crit_sq>0 ? Math.sqrt(z_crit_sq) : 0;
+  const viable_depth_m = Cs>cfg.Chyp ? Math.max(0, L/2 - z_crit) : 0;
+  const frac_viable = Math.min(1, Math.max(0, Cs>cfg.Chyp ? (L-2*z_crit)/L : 0));
+
+  // Necrotic core where C < C_necrosis
+  const z_nec_sq = L*L/4 - 2*D*(Cs-cfg.Cnec)/Qv;
+  const z_nec = z_nec_sq>0 ? Math.sqrt(z_nec_sq) : 0;
+  const frac_nec = Math.min(1, Math.max(0, Cs>cfg.Cnec ? 2*z_nec/L : 1));
+
+  // Max safe thickness: C_center = C_hyp → L_max = √(8D(Cs−Chyp)/Qv)
+  const max_safe_m = Cs>cfg.Chyp ? Math.sqrt(8*D*(Cs-cfg.Chyp)/Qv) : 0;
+  const max_safe_mm = max_safe_m*1e3;
 
   document.getElementById('d3-depth').textContent=(viable_depth_m*1e6).toFixed(0)+' µm each side';
-  document.getElementById('d3-depth').className='ds-val '+(viable_depth_m>L/4?'good':'warn');
+  document.getElementById('d3-depth').className='ds-val '+(viable_depth_m*1e6>100?'good':viable_depth_m>0?'warn':'bad');
   document.getElementById('d3-cmin').textContent=Cmin.toFixed(1)+' µM  ('+(Cmin/ALPHA_O2).toFixed(1)+' mmHg)';
   document.getElementById('d3-cmin').className='ds-val '+(Cmin>cfg.Chyp?'good':Cmin>cfg.Cnec?'warn':'bad');
   document.getElementById('d3-viable').textContent=(frac_viable*100).toFixed(1)+'%';
   document.getElementById('d3-viable').className='ds-val '+(frac_viable>0.9?'good':frac_viable>0.7?'warn':'bad');
   document.getElementById('d3-necrotic').textContent=(frac_nec*100).toFixed(1)+'%';
   document.getElementById('d3-necrotic').className='ds-val '+(frac_nec<0.05?'good':frac_nec<0.2?'warn':'bad');
-  document.getElementById('d3-maxthick').textContent=max_safe.toFixed(2)+' mm';
-  document.getElementById('d3-maxthick').className='ds-val '+(max_safe>=cfg.thickness?'good':'bad');
+  document.getElementById('d3-maxthick').textContent=max_safe_mm.toFixed(2)+' mm';
+  document.getElementById('d3-maxthick').className='ds-val '+(max_safe_mm>=cfg.thickness?'good':'bad');
 
-  const verdict_3d=frac_viable>=0.9?'fully viable at this thickness':'necrotic core predicted';
   document.getElementById('d3-interp').innerHTML=
-    `At <strong>${cfg.thickness.toFixed(1)} mm</strong> thickness with an average surface O₂ of <strong>${Cs.toFixed(1)} µM</strong>, the analytical 1-D model predicts: `+
-    `<strong>${(frac_viable*100).toFixed(1)}%</strong> of construct volume is viable, `+
-    `<strong>${(frac_nec*100).toFixed(1)}%</strong> is predicted necrotic. `+
-    `Maximum safe thickness under current conditions: <strong>${max_safe.toFixed(2)} mm</strong>. `+
-    (max_safe<cfg.thickness?`<strong style="color:var(--red)">Reduce construct thickness or add z-direction vascularisation.</strong>`:
-    `<span style="color:var(--green)">Thickness is within the predicted viable window.</span>`);
+    `At <strong>${cfg.thickness.toFixed(1)} mm</strong> thickness with surface O₂ ≈ <strong>${Cs.toFixed(1)} µM</strong>: `+
+    `central minimum = <strong>${Cmin.toFixed(1)} µM</strong>. `+
+    `3-D viable volume: <strong>${(frac_viable*100).toFixed(1)}%</strong>. `+
+    `Necrotic core: <strong>${(frac_nec*100).toFixed(1)}%</strong>. `+
+    `Maximum safe thickness for this scaffold: <strong>${max_safe_mm.toFixed(2)} mm</strong>. `+
+    (max_safe_mm<cfg.thickness
+      ?`<strong style="color:var(--red)">Construct is too thick — necrotic core predicted. Reduce thickness to ≤${max_safe_mm.toFixed(2)} mm or add z-direction vascularisation.</strong>`
+      :`<span style="color:var(--green)">Construct thickness is within the viable window for these parameters.</span>`)+
+    ` <em style="color:var(--txt3)">(Zero-order parabolic model — valid for C_source ≫ K_m)</em>`;
 
-  drawDepthProfile(L,lambda_m,Cs);
+  drawDepthProfile(L, Cs);
 }
 
 function computeAvgSurfaceO2(){
@@ -913,35 +936,32 @@ function computeAvgSurfaceO2(){
   return count>0?sum/count:(computeStats().avgO2);
 }
 
-function drawDepthProfile(L,lambda,Cs){
+function drawDepthProfile(L, Cs){
+  // Parabolic (zero-order) profile: C(z) = Cs - (Qvol/2D)*(L²/4 - z²)
   const canvas=document.getElementById('depthCanvas'),ctx=canvas.getContext('2d');
   const W=canvas.width,H=canvas.height;
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle='#03060f';ctx.fillRect(0,0,W,H);
   const pts=80;
-  // Draw concentration profile
+  const Cmax=Cs>0?Cs:1;
   ctx.beginPath();
   for(let i=0;i<=pts;i++){
-    const z=(i/pts-0.5)*L;  // -L/2 to L/2
-    const Cz=Cs/Math.cosh(L/(2*lambda))*Math.cosh(z/lambda);
-    const normC=Cz/Cs;
-    const px=i/pts*W;
-    const py=H-(normC*(H-8)+4);
+    const z=(i/pts-0.5)*L;
+    const Cz=Math.max(0, Cs - (cfg.Qvol/(2*cfg.D))*(L*L/4 - z*z));
+    const normC=Cz/Cmax;
+    const px=i/pts*W, py=H-(normC*(H-10)+5);
     i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
   }
   ctx.strokeStyle='#00ccff';ctx.lineWidth=2;ctx.stroke();
-  // Threshold lines
-  const drawThresh=(Ct,color)=>{
-    if(Ct>Cs) return;
-    const py=H-((Ct/Cs)*(H-8)+4);
+  const drawThresh=(Ct,color,label)=>{
+    if(Ct<=0||Ct>Cmax) return;
+    const py=H-((Ct/Cmax)*(H-10)+5);
     ctx.beginPath();ctx.moveTo(0,py);ctx.lineTo(W,py);
     ctx.strokeStyle=color;ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
+    ctx.font='9px monospace';ctx.fillStyle=color;ctx.fillText(label,2,py-2);
   };
-  drawThresh(cfg.Chyp,'rgba(255,200,0,.7)');
-  drawThresh(cfg.Cnec,'rgba(255,50,80,.7)');
-  // Labels
-  ctx.font='9px monospace';ctx.fillStyle='rgba(255,200,0,.8)';ctx.fillText('C_hyp',2,H-(cfg.Chyp/Cs*(H-8)+4)-2);
-  ctx.fillStyle='rgba(255,50,80,.8)';ctx.fillText('C_nec',2,H-(Math.min(cfg.Cnec,Cs*0.98)/Cs*(H-8)+4)-2);
+  drawThresh(cfg.Chyp,'rgba(255,200,0,.8)','C_hyp');
+  drawThresh(cfg.Cnec,'rgba(255,50,80,.8)','C_nec');
 }
 
 // ============================================================
@@ -1181,7 +1201,7 @@ function initUI(){
   document.getElementById('thickSlider').addEventListener('input',e=>{
     cfg.thickness=parseFloat(e.target.value);
     document.getElementById('thickVal').textContent=cfg.thickness.toFixed(1)+' mm';
-    update3DPanel();drawDepthProfile(cfg.thickness*1e-3,cfg.Qvol>0?Math.sqrt(cfg.D*cfg.Km/cfg.Qvol):1e6,computeAvgSurfaceO2());
+    update3DPanel();
   });
   // Canvas draw
   canvas.addEventListener('mousedown',e=>{drawing=true;lastDraw=null;onDraw(e);});
