@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BioPrint OxygenLab — Clinical Oxygen Transport Model</title>
+<style>
+:root{
+  --bg0:#03060f;--bg1:#070d1c;--bg2:#0c1428;--bg3:#111d35;
+  --cyan:#00ccff;--cyan2:#0099cc;--blue:#0055ff;
+  --green:#00ff88;--yellow:#ffd700;--red:#ff3355;--orange:#ff8c00;--purple:#aa55ff;
+  --txt:#d8e8f4;--txt2:#6888a8;--txt3:#3a5070;
+  --border:rgba(0,200,255,.14);--border2:rgba(0,200,255,.38);
+  --mono:'Courier New',monospace;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg0);color:var(--txt);font-family:var(--sans);overflow-x:hidden;line-height:1.6}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(3,6,15,.9);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 2rem;height:56px}
+.nav-logo{font-family:var(--mono);font-size:.92rem;color:var(--cyan);letter-spacing:.08em}
+.nav-badge{background:rgba(170,85,255,.15);border:1px solid rgba(170,85,255,.3);border-radius:3px;padding:.1rem .5rem;font-size:.6rem;color:var(--purple);letter-spacing:.1em;margin-left:.6rem;vertical-align:middle}
+.nav-links{display:flex;gap:1.8rem}
+.nav-links a{color:var(--txt2);text-decoration:none;font-size:.78rem;letter-spacing:.07em;text-transform:uppercase;transition:color .2s}
+.nav-links a:hover{color:var(--cyan)}
+
+#hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:100px 2rem 4rem;background:radial-gradient(ellipse 80% 55% at 50% 38%,rgba(0,80,180,.2) 0%,transparent 70%)}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;background:rgba(0,200,255,.07);border:1px solid var(--border2);border-radius:20px;padding:.3rem 1.1rem;font-family:var(--mono);font-size:.68rem;color:var(--cyan);letter-spacing:.1em;margin-bottom:1.5rem;text-transform:uppercase}
+.hero-badge-dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);animation:pulse 2s infinite}
+#hero h1{font-size:clamp(2.4rem,6vw,4.2rem);font-weight:700;letter-spacing:-.02em;line-height:1.08;margin-bottom:.9rem}
+#hero h1 span{color:var(--cyan)}
+.hero-sub{font-size:clamp(.95rem,2vw,1.12rem);color:var(--txt2);max-width:600px;margin-bottom:.8rem}
+.hero-desc{font-size:.86rem;color:var(--txt3);max-width:580px;line-height:1.9;margin-bottom:2.5rem}
+.hero-btns{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center}
+.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.75rem 1.9rem;border-radius:6px;font-size:.86rem;font-weight:600;letter-spacing:.04em;cursor:pointer;border:none;transition:all .2s;text-decoration:none}
+.btn-primary{background:var(--cyan);color:#000}
+.btn-primary:hover{background:#33ddff;transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,200,255,.38)}
+.btn-secondary{background:transparent;border:1px solid var(--border2);color:var(--cyan)}
+.btn-secondary:hover{background:rgba(0,200,255,.08);transform:translateY(-2px)}
+.hero-pills{display:flex;gap:.7rem;margin-top:3rem;flex-wrap:wrap;justify-content:center}
+.pill{background:rgba(0,200,255,.06);border:1px solid var(--border);border-radius:20px;padding:.28rem .9rem;font-family:var(--mono);font-size:.68rem;color:var(--txt2)}
+
+section{padding:5rem 2rem}
+.section-label{font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;color:var(--cyan2);text-transform:uppercase;margin-bottom:.45rem}
+.section-title{font-size:clamp(1.5rem,3.5vw,2.3rem);font-weight:700;letter-spacing:-.02em;margin-bottom:.7rem}
+.section-desc{color:var(--txt2);max-width:600px;font-size:.88rem;line-height:1.88;margin-bottom:2.8rem}
+
+/* ── SIMULATOR ── */
+#simulator{background:var(--bg1);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.sim-header{text-align:center;margin-bottom:2.5rem}
+.sim-layout{display:grid;grid-template-columns:270px 1fr 295px;gap:1.4rem;max-width:1220px;margin:0 auto;align-items:start}
+
+.ctrl-panel{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1.1rem;display:flex;flex-direction:column;gap:.8rem}
+.ctrl-group{display:flex;flex-direction:column;gap:.4rem}
+.ctrl-label{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--txt2);font-family:var(--mono);padding-bottom:.1rem}
+.btn-group{display:flex;flex-direction:column;gap:.3rem}
+.ctrl-btn{width:100%;padding:.44rem .75rem;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--txt2);font-size:.76rem;cursor:pointer;text-align:left;transition:all .18s;font-family:var(--mono)}
+.ctrl-btn:hover{border-color:var(--border2);color:var(--txt)}
+.ctrl-btn.active{border-color:var(--cyan);background:rgba(0,200,255,.1);color:var(--cyan)}
+.ctrl-divider{height:1px;background:var(--border)}
+.slider-row{display:flex;flex-direction:column;gap:.3rem}
+.slider-val{font-family:var(--mono);font-size:.76rem;color:var(--cyan);text-align:right}
+input[type=range]{width:100%;accent-color:var(--cyan);cursor:pointer}
+.toggle-row{display:flex;align-items:center;justify-content:space-between}
+.toggle-lbl{font-size:.76rem;color:var(--txt2)}
+.toggle{width:36px;height:18px;background:var(--bg3);border:1px solid var(--border);border-radius:9px;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.toggle.on{background:var(--cyan2)}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;transition:transform .2s}
+.toggle.on::after{transform:translateX(18px)}
+.action-btns{display:flex;gap:.4rem}
+.action-btn{flex:1;padding:.52rem;border-radius:5px;border:none;font-size:.74rem;font-weight:700;cursor:pointer;letter-spacing:.05em;transition:all .2s;font-family:var(--mono)}
+.run-btn{background:var(--cyan);color:#000}.run-btn:hover{background:#33ddff}
+.pause-btn{background:var(--bg3);border:1px solid var(--border2);color:var(--cyan)}.pause-btn:hover{background:rgba(0,200,255,.1)}
+.reset-btn{background:var(--bg3);border:1px solid var(--border);color:var(--txt2)}.reset-btn:hover{border-color:var(--red);color:var(--red)}
+.sim-prog{height:3px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.sim-prog-bar{height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan));width:0%;transition:width .2s}
+.sim-status{font-family:var(--mono);font-size:.64rem;color:var(--txt3);text-align:center;margin-top:.2rem}
+.view-btns{display:grid;grid-template-columns:1fr 1fr;gap:.32rem}
+.view-btn{padding:.4rem;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--txt2);font-size:.68rem;cursor:pointer;text-align:center;transition:all .18s;font-family:var(--mono)}
+.view-btn:hover{border-color:var(--border2);color:var(--txt)}
+.view-btn.active{border-color:var(--cyan);background:rgba(0,200,255,.1);color:var(--cyan)}
+.diam-btns{display:flex;gap:.32rem}
+.diam-btn{flex:1;padding:.36rem .1rem;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--txt2);font-size:.68rem;cursor:pointer;text-align:center;transition:all .18s;font-family:var(--mono);min-width:0}
+.diam-btn:hover{border-color:var(--border2)}
+.diam-btn.active{border-color:var(--cyan);background:rgba(0,200,255,.1);color:var(--cyan)}
+select{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--txt);border-radius:5px;padding:.42rem .6rem;font-size:.76rem;font-family:var(--mono);cursor:pointer;outline:none}
+select:focus{border-color:var(--border2)}
+
+.canvas-panel{display:flex;flex-direction:column;gap:.85rem}
+.canvas-wrap{position:relative;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#000;box-shadow:0 0 50px rgba(0,150,255,.06)}
+.canvas-wrap::after{content:'';position:absolute;inset:0;border-radius:8px;box-shadow:inset 0 0 40px rgba(0,200,255,.04);pointer-events:none}
+#simCanvas{display:block;width:100%;aspect-ratio:1;image-rendering:pixelated;cursor:crosshair}
+.canvas-overlay{position:absolute;top:.55rem;left:.55rem;display:flex;gap:.35rem;flex-direction:column}
+.canvas-badge{background:rgba(4,8,20,.88);border:1px solid var(--border);border-radius:4px;padding:.2rem .55rem;font-family:var(--mono);font-size:.63rem;color:var(--cyan)}
+.colorbar-wrap{display:flex;align-items:center;gap:.8rem;padding:.5rem .75rem;background:var(--bg2);border:1px solid var(--border);border-radius:6px}
+.colorbar-label{font-family:var(--mono);font-size:.64rem;color:var(--txt2);white-space:nowrap}
+#colorBar{flex:1;height:10px;border-radius:3px}
+.draw-hint{font-family:var(--mono);font-size:.68rem;color:var(--txt3);text-align:center;padding:.38rem;border:1px dashed var(--border);border-radius:5px}
+
+.results-panel{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1.1rem;display:flex;flex-direction:column;gap:.65rem}
+.results-title{font-family:var(--mono);font-size:.66rem;letter-spacing:.12em;color:var(--txt2);text-transform:uppercase;padding-bottom:.35rem;border-bottom:1px solid var(--border)}
+.metric-row{display:flex;justify-content:space-between;align-items:baseline;padding:.22rem 0;border-bottom:1px solid rgba(0,200,255,.05)}
+.metric-row:last-child{border-bottom:none}
+.metric-name{font-size:.73rem;color:var(--txt2)}
+.metric-val{font-family:var(--mono);font-size:.78rem;color:var(--txt)}
+.metric-val.good{color:var(--green)}.metric-val.warn{color:var(--yellow)}.metric-val.bad{color:var(--red)}
+.viability-tiers{display:flex;flex-direction:column;gap:.32rem;padding:.6rem 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.tier-row{display:flex;align-items:center;gap:.6rem}
+.tier-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.tier-label{font-size:.72rem;color:var(--txt2);flex:1}
+.tier-val{font-family:var(--mono);font-size:.76rem}
+.tier-bar-bg{flex:2;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.tier-bar{height:100%;border-radius:3px;transition:width .5s ease}
+.info-box{background:rgba(0,200,255,.04);border:1px solid var(--border);border-radius:6px;padding:.5rem .75rem}
+.info-box .lbl{font-family:var(--mono);font-size:.62rem;color:var(--txt3)}
+.info-box .val{font-family:var(--mono);font-size:.86rem;color:var(--cyan);margin-top:.06rem}
+.info-box .val.warn{color:var(--yellow)}.info-box .val.bad{color:var(--red)}.info-box .val.good{color:var(--green)}
+.verdict-box{border-radius:7px;padding:.65rem .9rem;text-align:center}
+.verdict-box.pass{background:rgba(0,255,136,.07);border:1px solid rgba(0,255,136,.22)}
+.verdict-box.warn{background:rgba(255,215,0,.07);border:1px solid rgba(255,215,0,.22)}
+.verdict-box.fail{background:rgba(255,51,85,.07);border:1px solid rgba(255,51,85,.22)}
+.verdict-box.idle{background:var(--bg3);border:1px solid var(--border)}
+.verdict-label{font-size:.63rem;letter-spacing:.1em;text-transform:uppercase;color:var(--txt2);font-family:var(--mono)}
+.verdict-val{font-size:1rem;font-weight:700;margin-top:.12rem}
+.verdict-box.pass .verdict-val{color:var(--green)}.verdict-box.warn .verdict-val{color:var(--yellow)}.verdict-box.fail .verdict-val{color:var(--red)}.verdict-box.idle .verdict-val{color:var(--txt2)}
+.verdict-note{font-size:.6rem;color:var(--txt3);margin-top:.35rem;font-style:italic;line-height:1.5}
+
+/* ── 3D PANEL ── */
+#depth-analysis{background:var(--bg0);border-bottom:1px solid var(--border)}
+.depth-inner{max-width:1100px;margin:0 auto}
+.depth-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1.2rem}
+.depth-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1.3rem}
+.depth-card h4{font-family:var(--mono);font-size:.72rem;color:var(--cyan);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.8rem}
+.depth-stat{display:flex;justify-content:space-between;align-items:baseline;padding:.25rem 0;border-bottom:1px solid rgba(0,200,255,.06)}
+.depth-stat:last-child{border-bottom:none}
+.ds-label{font-size:.74rem;color:var(--txt2)}
+.ds-val{font-family:var(--mono);font-size:.8rem}
+.ds-val.good{color:var(--green)}.ds-val.warn{color:var(--yellow)}.ds-val.bad{color:var(--red)}
+.depth-slider-wrap{display:flex;flex-direction:column;gap:.4rem;margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--border)}
+
+/* ── EXPLANATIONS ── */
+#explanations{background:var(--bg1);border-top:1px solid var(--border)}
+.exp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:1.1rem;max-width:1100px;margin:0 auto}
+.exp-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1.3rem;transition:border-color .22s,transform .18s}
+.exp-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.exp-card-icon{font-size:1.4rem;margin-bottom:.6rem}
+.exp-card-title{font-size:.86rem;font-weight:700;color:var(--cyan);margin-bottom:.5rem}
+.exp-card-body{font-size:.78rem;color:var(--txt2);line-height:1.88}
+.exp-card-body strong{color:var(--txt)}
+.exp-placeholder{text-align:center;color:var(--txt3);font-size:.84rem;padding:2.5rem;grid-column:1/-1;font-style:italic;border:1px dashed var(--border);border-radius:8px}
+
+/* ── SCIENCE ── */
+#science{background:var(--bg0);border-top:1px solid var(--border)}
+.science-inner{max-width:880px;margin:0 auto}
+.eq-box{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--cyan);border-radius:8px;padding:1.3rem 1.7rem;margin:1.4rem 0}
+.eq-formula{font-family:var(--mono);font-size:1.2rem;color:var(--cyan);text-align:center;padding:.65rem 0;letter-spacing:.03em}
+.eq-meaning{font-size:.8rem;color:var(--txt2);margin-top:.55rem;line-height:1.9}
+.eq-meaning strong{color:var(--txt)}
+.sci-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.4rem 0}
+.sci-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:1.15rem}
+.sci-card h4{font-size:.74rem;color:var(--cyan);letter-spacing:.07em;text-transform:uppercase;font-family:var(--mono);margin-bottom:.6rem}
+.sci-card p,.sci-card li{font-size:.78rem;color:var(--txt2);line-height:1.88}
+.sci-card ul{padding-left:1rem}.sci-card li{margin-bottom:.28rem}
+.assumptions{background:rgba(255,140,0,.04);border:1px solid rgba(255,140,0,.17);border-radius:8px;padding:1.1rem 1.4rem;margin-top:1.4rem}
+.assumptions h4{font-size:.74rem;color:var(--orange);letter-spacing:.08em;text-transform:uppercase;font-family:var(--mono);margin-bottom:.6rem}
+.assumptions li{font-size:.76rem;color:var(--txt2);line-height:1.9;padding-left:.2rem;margin-bottom:.2rem}
+.assumptions ul{padding-left:1.1rem}
+
+/* ── PARAM REFERENCE ── */
+#params{background:var(--bg1);border-top:1px solid var(--border)}
+.params-inner{max-width:1000px;margin:0 auto}
+.param-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;margin-bottom:1.5rem}
+table{width:100%;border-collapse:collapse}
+th{background:var(--bg2);padding:.65rem .9rem;text-align:left;font-family:var(--mono);font-size:.65rem;color:var(--txt2);letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:.6rem .9rem;font-size:.76rem;border-bottom:1px solid rgba(0,200,255,.05)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(0,200,255,.02)}
+td.mono{font-family:var(--mono);font-size:.73rem}
+td.good{color:var(--green)}td.warn{color:var(--yellow)}td.bad{color:var(--red)}
+
+/* ── COMPARE ── */
+#compare{background:var(--bg0);border-top:1px solid var(--border)}
+.compare-inner{max-width:1100px;margin:0 auto}
+.compare-run-btn{display:inline-flex;align-items:center;gap:.5rem;padding:.65rem 1.6rem;background:var(--cyan);color:#000;border:none;border-radius:6px;font-size:.82rem;font-weight:700;cursor:pointer;margin-bottom:1.8rem;letter-spacing:.05em;transition:all .2s;font-family:var(--mono)}
+.compare-run-btn:hover{background:#33ddff;transform:translateY(-1px)}
+.compare-run-btn:disabled{background:var(--bg3);color:var(--txt3);cursor:not-allowed;transform:none}
+.compare-empty{text-align:center;padding:2.5rem;color:var(--txt3);font-style:italic}
+
+/* ── ROADMAP ── */
+#roadmap{background:var(--bg1);border-top:1px solid var(--border)}
+.roadmap-inner{max-width:980px;margin:0 auto}
+.roadmap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:1rem}
+.roadmap-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1.25rem;position:relative;overflow:hidden}
+.roadmap-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%}
+.v1::before{background:var(--cyan)}.v2::before{background:var(--blue)}.v3::before{background:var(--green)}.v4::before{background:var(--yellow)}.v5::before{background:var(--orange)}.v6::before{background:var(--red)}
+.rv{font-family:var(--mono);font-size:.65rem;color:var(--txt3);letter-spacing:.09em;margin-bottom:.28rem;text-transform:uppercase}
+.rt{font-size:.88rem;font-weight:700;margin-bottom:.36rem}
+.rd{font-size:.76rem;color:var(--txt2);line-height:1.75}
+.rs{display:inline-block;margin-top:.65rem;font-family:var(--mono);font-size:.6rem;padding:.18rem .55rem;border-radius:3px;letter-spacing:.08em}
+.v1 .rs{background:rgba(0,200,255,.1);color:var(--cyan)}
+.v2 .rs,.v3 .rs,.v4 .rs,.v5 .rs,.v6 .rs{background:rgba(255,255,255,.05);color:var(--txt3)}
+
+footer{background:var(--bg0);border-top:1px solid var(--border);padding:2.5rem 2rem;text-align:center}
+.footer-logo{font-family:var(--mono);font-size:.95rem;color:var(--cyan);margin-bottom:.45rem}
+.footer-note{font-size:.73rem;color:var(--txt3);line-height:1.88;max-width:560px;margin:0 auto}
+
+@media(max-width:950px){.sim-layout{grid-template-columns:1fr;max-width:520px}.sci-grid{grid-template-columns:1fr}}
+@media(max-width:600px){nav .nav-links{display:none}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.fade-in{animation:fadeIn .38s ease forwards}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">BioPrint<span style="color:var(--txt2)">.</span>OxygenLab <span class="nav-badge">CLINICAL v2</span></div>
+  <div class="nav-links">
+    <a href="#simulator">Simulator</a>
+    <a href="#depth-analysis">3-D Analysis</a>
+    <a href="#science">Science</a>
+    <a href="#params">Parameters</a>
+    <a href="#compare">Compare</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-badge"><span class="hero-badge-dot"></span>Michaelis-Menten Kinetics · Real O₂ Units · Tissue Presets · Vessel Permeability · 3-D Depth Correction</div>
+  <h1>BioPrint <span>OxygenLab</span></h1>
+  <p class="hero-sub">Clinical-grade oxygen transport modelling for bioprinted tissue scaffolds.</p>
+  <p class="hero-desc">Combines Fick's second law with Michaelis-Menten metabolic consumption, real physical units (µM / mmHg), tissue-specific parameters from peer-reviewed literature, vessel wall permeability coefficients, and 3-D depth correction — the same physical framework used in published tissue-engineering transport models.</p>
+  <div class="hero-btns">
+    <a href="#simulator" class="btn btn-primary">Run Clinical Model</a>
+    <a href="#science" class="btn btn-secondary">View Physics</a>
+  </div>
+  <div class="hero-pills">
+    <span class="pill">∂C/∂t = D∇²C − Q(C)</span>
+    <span class="pill">Q = Q_max·C/(K_m+C)</span>
+    <span class="pill">1 cell = 25 µm</span>
+    <span class="pill">Robin BC vessel walls</span>
+    <span class="pill">3-D slab correction</span>
+  </div>
+</section>
+
+<!-- SIMULATOR -->
+<section id="simulator">
+  <div class="sim-header">
+    <div class="section-label">Computational Simulator</div>
+    <h2 class="section-title">Oxygen Transport Model</h2>
+    <p style="color:var(--txt2);font-size:.86rem;max-width:600px;margin:0 auto;line-height:1.85">Select a tissue preset, configure the vascular scaffold, and run the Michaelis-Menten diffusion model in real O₂ units across a 2.5 × 2.5 mm cross-section.</p>
+  </div>
+  <div class="sim-layout">
+
+    <!-- CONTROLS -->
+    <div class="ctrl-panel">
+      <div class="ctrl-group">
+        <div class="ctrl-label">Tissue Preset</div>
+        <select id="tissueSelect">
+          <option value="cartilage">Articular Cartilage</option>
+          <option value="liver">Hepatic Construct</option>
+          <option value="cardiac">Cardiac Patch</option>
+          <option value="msc">MSC / Stem Cell</option>
+          <option value="custom">Custom</option>
+        </select>
+        <div style="font-size:.64rem;color:var(--txt3);font-style:italic;margin-top:.2rem" id="tissueNote"></div>
+      </div>
+      <div class="ctrl-divider"></div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Cell Density <span id="densityVal" style="color:var(--cyan)"></span></div>
+        <input type="range" id="densitySlider" min="1" max="50" step="1" value="25">
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Diffusion Coefficient</div>
+        <div class="slider-val" id="diffVal">— × 10⁻⁹ m²/s</div>
+        <input type="range" id="diffSlider" min="0.5" max="3.0" step="0.05" value="0.8">
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Q_max per cell &nbsp;<span style="color:var(--txt3);font-size:.88em">(nmol/10⁶cells/s)</span></div>
+        <div class="slider-val" id="qmaxVal">—</div>
+        <input type="range" id="qmaxSlider" min="0.1" max="30" step="0.1" value="0.7">
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">K_m (half-saturation)</div>
+        <div class="slider-val" id="kmVal">— µM</div>
+        <input type="range" id="kmSlider" min="0.5" max="10" step="0.1" value="1.5">
+      </div>
+      <div class="ctrl-divider"></div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">O₂ Source</div>
+        <select id="sourceSelect">
+          <option value="200">Arterial blood (200 µM, ~100 mmHg)</option>
+          <option value="100">Venous blood (100 µM, ~40 mmHg)</option>
+          <option value="215">Bioreactor 21% O₂ (215 µM)</option>
+          <option value="51">Bioreactor 5% O₂ (51 µM)</option>
+          <option value="10">Bioreactor 1% O₂ (10 µM)</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Vessel Wall Type</div>
+        <select id="wallSelect">
+          <option value="9999">Open bioprinted channel (no wall)</option>
+          <option value="0.0001">Endothelialized capillary</option>
+          <option value="0.00005">GelMA / fibrin wall</option>
+          <option value="0.00002">PDMS microfluidic wall</option>
+        </select>
+      </div>
+      <div class="ctrl-divider"></div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Vascular Layout</div>
+        <div class="btn-group" id="layoutBtns">
+          <button class="ctrl-btn active" data-layout="none">No Vessels</button>
+          <button class="ctrl-btn" data-layout="straight">Straight Channels</button>
+          <button class="ctrl-btn" data-layout="branching">Branching Network</button>
+          <button class="ctrl-btn" data-layout="radial">Radial Network</button>
+          <button class="ctrl-btn" data-layout="custom">✏ Custom Draw</button>
+        </div>
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Channel Diameter</div>
+        <div class="diam-btns" id="diamBtns">
+          <button class="diam-btn" data-diam="1">25µm</button>
+          <button class="diam-btn active" data-diam="2">50µm</button>
+          <button class="diam-btn" data-diam="4">100µm</button>
+          <button class="diam-btn" data-diam="8">200µm</button>
+        </div>
+      </div>
+      <div class="ctrl-divider"></div>
+      <div class="ctrl-group">
+        <div class="toggle-row"><span class="toggle-lbl">Outer Boundary O₂</span><div class="toggle" id="boundaryToggle"></div></div>
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">View Mode</div>
+        <div class="view-btns" id="viewBtns">
+          <button class="view-btn active" data-view="oxygen">O₂ (µM)</button>
+          <button class="view-btn" data-view="viability">Viability</button>
+          <button class="view-btn" data-view="distance">Distance</button>
+          <button class="view-btn" data-view="vessels">Vessels</button>
+        </div>
+      </div>
+      <div class="ctrl-divider"></div>
+      <div class="action-btns">
+        <button class="action-btn run-btn" id="runBtn">RUN</button>
+        <button class="action-btn pause-btn" id="pauseBtn">PAUSE</button>
+        <button class="action-btn reset-btn" id="resetBtn">RESET</button>
+      </div>
+      <div><div class="sim-prog"><div class="sim-prog-bar" id="progressBar"></div></div><div class="sim-status" id="simStatus">Ready — press RUN</div></div>
+    </div>
+
+    <!-- CANVAS -->
+    <div class="canvas-panel">
+      <div class="canvas-wrap">
+        <canvas id="simCanvas" width="500" height="500"></canvas>
+        <div class="canvas-overlay">
+          <div class="canvas-badge" id="viewBadge">O₂ CONCENTRATION (µM)</div>
+          <div class="canvas-badge">1 cell = 25 µm · 2.5 × 2.5 mm section</div>
+        </div>
+      </div>
+      <div class="colorbar-wrap">
+        <span class="colorbar-label" id="cbMin">0 µM</span>
+        <canvas id="colorBar" width="300" height="10"></canvas>
+        <span class="colorbar-label" id="cbMax">— µM</span>
+      </div>
+      <div class="draw-hint" id="drawHint" style="display:none">Click and drag to paint vessel channels on the grid</div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="results-panel">
+      <div class="results-title">Clinical Results Dashboard</div>
+
+      <div class="info-box">
+        <div class="lbl">Characteristic length  λ = √(D · K_m / Q_vol)</div>
+        <div class="val" id="lambdaVal">— µm</div>
+      </div>
+      <div class="info-box">
+        <div class="lbl">O₂ demand (Q_vol)</div>
+        <div class="val" id="qvolVal">— µM/s</div>
+      </div>
+      <div class="info-box">
+        <div class="lbl">Effective vessel O₂</div>
+        <div class="val" id="cvesVal">— µM (— mmHg)</div>
+      </div>
+
+      <div class="viability-tiers">
+        <div class="tier-row">
+          <div class="tier-dot" style="background:var(--green)"></div>
+          <span class="tier-label">Viable (C &gt; C_hypoxia)</span>
+          <div class="tier-bar-bg"><div class="tier-bar" id="bar-viable" style="background:var(--green);width:0%"></div></div>
+          <span class="tier-val good" id="pct-viable">—</span>
+        </div>
+        <div class="tier-row">
+          <div class="tier-dot" style="background:var(--yellow)"></div>
+          <span class="tier-label">Hypoxic (C_necrosis–C_hypoxia)</span>
+          <div class="tier-bar-bg"><div class="tier-bar" id="bar-hypoxic" style="background:var(--yellow);width:0%"></div></div>
+          <span class="tier-val warn" id="pct-hypoxic">—</span>
+        </div>
+        <div class="tier-row">
+          <div class="tier-dot" style="background:var(--red)"></div>
+          <span class="tier-label">Necrotic (C &lt; C_necrosis)</span>
+          <div class="tier-bar-bg"><div class="tier-bar" id="bar-necrotic" style="background:var(--red);width:0%"></div></div>
+          <span class="tier-val bad" id="pct-necrotic">—</span>
+        </div>
+      </div>
+
+      <div class="metric-row"><span class="metric-name">Avg O₂</span><span class="metric-val" id="m-avgO2">—</span></div>
+      <div class="metric-row"><span class="metric-name">Min O₂</span><span class="metric-val" id="m-minO2">—</span></div>
+      <div class="metric-row"><span class="metric-name">Hypoxia threshold</span><span class="metric-val" id="m-chyp">—</span></div>
+      <div class="metric-row"><span class="metric-name">Necrosis threshold</span><span class="metric-val" id="m-cnec">—</span></div>
+      <div class="metric-row"><span class="metric-name">Avg dist. to vessel</span><span class="metric-val" id="m-avgDist">—</span></div>
+      <div class="metric-row"><span class="metric-name">Max dist. to vessel</span><span class="metric-val" id="m-maxDist">—</span></div>
+      <div class="metric-row"><span class="metric-name">Vessel density</span><span class="metric-val" id="m-vdens">—</span></div>
+      <div class="metric-row"><span class="metric-name">O₂ supply/demand</span><span class="metric-val" id="m-ratio">—</span></div>
+      <div class="metric-row"><span class="metric-name">Simulated time</span><span class="metric-val" id="m-time">—</span></div>
+
+      <div class="verdict-box idle" id="verdictBox">
+        <div class="verdict-label">Clinical Verdict</div>
+        <div class="verdict-val" id="verdictVal">Run simulation</div>
+        <div class="verdict-note">Pass: &gt;90% viable. Moderate Risk: 70–90%. Fail: &lt;70%. Based on tissue-specific O₂ thresholds — not direct clinical predictions.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3D DEPTH ANALYSIS -->
+<section id="depth-analysis">
+  <div class="depth-inner">
+    <div class="section-label">3-D Depth Correction</div>
+    <h2 class="section-title">Construct Thickness Analysis</h2>
+    <p class="section-desc">The 2-D simulation models a cross-section. Real constructs have depth. Using an analytical solution to the 1-D diffusion-consumption equation, this panel estimates how oxygen penetrates through the z-axis for the current scaffold and metabolic parameters.</p>
+    <div class="depth-grid">
+      <div class="depth-card">
+        <h4>3-D Depth Settings</h4>
+        <div class="depth-slider-wrap">
+          <div class="ctrl-label">Construct Thickness: <span style="color:var(--cyan)" id="thickVal">2.0 mm</span></div>
+          <input type="range" id="thickSlider" min="0.1" max="10" step="0.1" value="2.0">
+          <div style="font-size:.68rem;color:var(--txt3);margin-top:.3rem">Assumes outer surfaces are the primary O₂ source (perfusion medium or outer vasculature)</div>
+        </div>
+      </div>
+      <div class="depth-card">
+        <h4>3-D Viability Estimate</h4>
+        <div class="depth-stat"><span class="ds-label">Viable depth from each surface</span><span class="ds-val" id="d3-depth">—</span></div>
+        <div class="depth-stat"><span class="ds-label">Central minimum O₂</span><span class="ds-val" id="d3-cmin">—</span></div>
+        <div class="depth-stat"><span class="ds-label">3-D viable volume fraction</span><span class="ds-val" id="d3-viable">—</span></div>
+        <div class="depth-stat"><span class="ds-label">3-D necrotic volume fraction</span><span class="ds-val" id="d3-necrotic">—</span></div>
+        <div class="depth-stat"><span class="ds-label">Max safe thickness (2-D surface C)</span><span class="ds-val" id="d3-maxthick">—</span></div>
+      </div>
+      <div class="depth-card">
+        <h4>Depth Profile</h4>
+        <canvas id="depthCanvas" width="260" height="160" style="width:100%;border-radius:4px;background:#000;margin-top:.4rem"></canvas>
+        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:.62rem;color:var(--txt3);margin-top:.3rem"><span>Surface (z=0)</span><span>Centre</span><span>Surface (z=L)</span></div>
+      </div>
+      <div class="depth-card">
+        <h4>Clinical Interpretation</h4>
+        <div style="font-size:.76rem;color:var(--txt2);line-height:1.85" id="d3-interp">Run simulation first to populate depth analysis.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- EXPLANATIONS -->
+<section id="explanations">
+  <div style="max-width:1100px;margin:0 auto">
+    <div class="section-label">Auto-Generated Scientific Analysis</div>
+    <h2 class="section-title">Why Did This Result Happen?</h2>
+    <p class="section-desc">Each card connects simulation output to the underlying Michaelis-Menten transport physics — why certain zones failed, what changed with geometry, and what would be required to meet viability thresholds.</p>
+    <div class="exp-grid" id="expGrid">
+      <div class="exp-placeholder">Run the simulation to generate tissue-specific scientific explanations.</div>
+    </div>
+  </div>
+</section>
+
+<!-- SCIENCE MODE -->
+<section id="science">
+  <div class="science-inner">
+    <div class="section-label">Physical Model</div>
+    <h2 class="section-title">Michaelis-Menten Diffusion-Consumption</h2>
+    <p class="section-desc">Version 2 replaces first-order linear consumption with the physiologically correct Michaelis-Menten kinetics, real O₂ concentration units, and tissue-specific transport parameters drawn from peer-reviewed literature.</p>
+
+    <div class="eq-box">
+      <div class="eq-formula">∂C/∂t = D∇²C − Q_max · C / (K_m + C)</div>
+      <div class="eq-meaning">
+        <strong>C</strong> = oxygen concentration (µM) &nbsp;·&nbsp; <strong>D</strong> = diffusion coefficient (m²/s) &nbsp;·&nbsp;
+        <strong>Q_max</strong> = maximum volumetric consumption rate (µM/s) &nbsp;·&nbsp; <strong>K_m</strong> = half-saturation constant (µM, typically 1–5 µM for mammalian cells)<br><br>
+        When C ≫ K_m the consumption approaches Q_max (zero-order, constant drain). When C ≪ K_m it reduces to first-order (linear), with effective rate constant k = Q_max/K_m.
+        The characteristic penetration length is <strong>λ = √(D · K_m / Q_max)</strong> in the linear regime.
+      </div>
+    </div>
+
+    <div class="eq-box">
+      <div class="eq-formula" style="font-size:.95rem">C_diff = C + α·∇²_h C &nbsp;·&nbsp; C_new = C_diff / (1 + Δt · Q_max / (K_m + C_diff))</div>
+      <div class="eq-meaning">
+        <strong>Operator splitting</strong>: explicit diffusion step followed by an implicit (backward-Euler) consumption step. The implicit treatment makes the consumption term unconditionally stable regardless of Q_max magnitude — critical for high-metabolism tissues such as cardiac muscle where explicit methods would require Δt &lt; 10⁻⁴ s.
+        Diffusion number α = D·Δt/Δx² ≤ 0.25 ensures diffusion stability (Δt = 0.05 s, Δx = 25 µm).
+      </div>
+    </div>
+
+    <div class="eq-box">
+      <div class="eq-formula" style="font-size:.95rem">C_vessel = C_source · P_v / (P_v + D/Δx)</div>
+      <div class="eq-meaning">
+        <strong>Robin boundary condition (vessel wall permeability)</strong>: the oxygen concentration at a vessel surface is not simply the blood/medium concentration — it is attenuated by the vessel wall resistance. P_v is the wall permeability coefficient (m/s). Open bioprinted channels: P_v → ∞ → C_vessel = C_source. Endothelialised capillaries: P_v ≈ 10⁻⁴ m/s, D/Δx ≈ 4×10⁻⁵ m/s → C_vessel ≈ 0.71 × C_source. PDMS walls: C_vessel ≈ 0.33 × C_source.
+      </div>
+    </div>
+
+    <div class="sci-grid">
+      <div class="sci-card">
+        <h4>Why Michaelis-Menten Matters</h4>
+        <p>First-order consumption (linear k·C) overestimates depletion near vessels (where C ≫ K_m) and underestimates it in hypoxic zones. Michaelis-Menten correctly captures saturation: cells consume at full rate Q_max even at moderate O₂, creating sharper transition zones and smaller necrotic cores than linear models predict.</p>
+      </div>
+      <div class="sci-card">
+        <h4>O₂ Unit Conversion</h4>
+        <ul>
+          <li>C (µM) ÷ 1.27 = PO₂ (mmHg) at 37 °C</li>
+          <li>Arterial blood: ~200 µM (~100 mmHg)</li>
+          <li>Venous return: ~100 µM (~40 mmHg)</li>
+          <li>Hypoxia onset: 5–20 µM (tissue-type dependent)</li>
+          <li>Necrosis: &lt;1–5 µM</li>
+          <li>21% O₂ bioreactor: ~215 µM</li>
+        </ul>
+      </div>
+      <div class="sci-card">
+        <h4>3-D Depth Model</h4>
+        <p>For a slab of thickness L with surface O₂ = C_surf, the 1-D analytical steady-state gives a central minimum: <strong>C_center = C_surf / cosh(L / 2λ)</strong>. The viable depth from each surface is: <strong>z_hyp = λ · arccosh(C_surf / C_hypoxia)</strong>. The 3-D viable volume is then computed by integrating this correction over all (x,y) tissue cells.</p>
+      </div>
+      <div class="sci-card">
+        <h4>Tissue-Specific Thresholds</h4>
+        <ul>
+          <li><strong>Cartilage</strong>: C_hyp = 5 µM, C_nec = 0.5 µM (adapted to low O₂)</li>
+          <li><strong>Liver</strong>: C_hyp = 10 µM, C_nec = 2 µM</li>
+          <li><strong>Cardiac</strong>: C_hyp = 15 µM, C_nec = 3 µM</li>
+          <li><strong>MSC</strong>: C_hyp = 5 µM, C_nec = 0.5 µM</li>
+          <li>Custom: user-adjustable via presets panel</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="assumptions">
+      <h4>Remaining Limitations vs. Full Clinical Validation</h4>
+      <ul>
+        <li>2-D planar model — 3-D correction is analytical (1-D slab) not full volumetric FEM</li>
+        <li>Homogeneous cell density — no spatial variation in seeding or ECM microstructure</li>
+        <li>Steady-state vessel O₂ — no pulsatile flow, vessel wall pressure, or axial O₂ depletion along vessel length</li>
+        <li>No CO₂ / lactate / pH transport — waste accumulation can independently trigger apoptosis</li>
+        <li>No angiogenesis, cell migration, scaffold degradation, or mechanobiological coupling</li>
+        <li>D assumed isotropic and homogeneous — fibre-reinforced or layered scaffolds have anisotropic D</li>
+        <li>All verdicts are model-based educational thresholds — regulatory submission requires validated 3-D FEM + in vitro/in vivo correlation</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- PARAMETER REFERENCE -->
+<section id="params">
+  <div class="params-inner">
+    <div class="section-label">Literature Parameters</div>
+    <h2 class="section-title">Parameter Reference Table</h2>
+    <p class="section-desc">All default parameters are drawn from peer-reviewed tissue engineering and computational biology literature. Custom mode allows independent adjustment of all values.</p>
+    <div class="param-table-wrap">
+      <table>
+        <thead>
+          <tr><th>Tissue</th><th>D (×10⁻⁹ m²/s)</th><th>Q_max (nmol/10⁶/s)</th><th>K_m (µM)</th><th>Cell density (10⁶/mL)</th><th>C_hypoxia (µM)</th><th>C_necrosis (µM)</th><th>Key references</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Articular Cartilage</strong></td><td class="mono">0.8</td><td class="mono">0.7</td><td class="mono">1.5</td><td class="mono">25</td><td class="mono good">5</td><td class="mono bad">0.5</td><td style="font-size:.68rem;color:var(--txt3)">Brighton &amp; Heppenstall 1971; Zhou et al. 2004; Heywood &amp; Lee 2012</td></tr>
+          <tr><td><strong>Hepatic Construct</strong></td><td class="mono">1.8</td><td class="mono">6.5</td><td class="mono">2.5</td><td class="mono">15</td><td class="mono warn">10</td><td class="mono bad">2</td><td style="font-size:.68rem;color:var(--txt3)">Tilles et al. 2001; Park et al. 2007; Allen &amp; Bhatia 2003</td></tr>
+          <tr><td><strong>Cardiac Patch</strong></td><td class="mono">1.2</td><td class="mono">22</td><td class="mono">3.5</td><td class="mono">8</td><td class="mono warn">15</td><td class="mono bad">3</td><td style="font-size:.68rem;color:var(--txt3)">Radisic et al. 2006; Malda et al. 2004; Chung et al. 2010</td></tr>
+          <tr><td><strong>MSC Construct</strong></td><td class="mono">2.0</td><td class="mono">0.4</td><td class="mono">1.0</td><td class="mono">5</td><td class="mono good">5</td><td class="mono bad">0.5</td><td style="font-size:.68rem;color:var(--txt3)">Zhao et al. 2005; Kellner et al. 2002</td></tr>
+          <tr><td><strong>O₂ in water (37 °C)</strong></td><td class="mono" colspan="6">Solubility α = 1.27 µM/mmHg &nbsp;·&nbsp; D_free = 3.0 × 10⁻⁹ m²/s</td><td style="font-size:.68rem;color:var(--txt3)">Goldstick &amp; Fatt 1970</td></tr>
+          <tr><td><strong>GelMA hydrogel</strong></td><td class="mono">0.5–1.5</td><td class="mono" colspan="5">Depends on cross-link density and swelling ratio</td><td style="font-size:.68rem;color:var(--txt3)">Malcom et al. 2018</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:.74rem;color:var(--txt3);font-style:italic">Vessel wall permeability: capillary endothelium P_v ≈ 1×10⁻⁴ m/s (Grote et al. 1977); PDMS ≈ 2×10⁻⁵ m/s; GelMA wall ≈ 5×10⁻⁵ m/s. O₂ solubility coefficient at 37 °C from Goldstick &amp; Fatt (1970). All values represent order-of-magnitude estimates within published ranges.</p>
+  </div>
+</section>
+
+<!-- COMPARE -->
+<section id="compare">
+  <div class="compare-inner">
+    <div class="section-label">Design Comparison</div>
+    <h2 class="section-title">Compare All Vascular Layouts</h2>
+    <p class="section-desc">Runs the full Michaelis-Menten simulation to near steady state for each layout using current tissue and scaffold settings, then reports clinical metrics side by side.</p>
+    <button class="compare-run-btn" id="compareBtn">▶ Run All Comparisons</button>
+    <div class="param-table-wrap">
+      <table>
+        <thead><tr><th>Layout</th><th>% Viable</th><th>% Hypoxic</th><th>% Necrotic</th><th>Avg O₂ (µM)</th><th>Min O₂ (µM)</th><th>Avg dist.</th><th>Verdict</th></tr></thead>
+        <tbody id="compareBody"><tr><td class="compare-empty" colspan="8">Click "Run All Comparisons" to populate.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section id="roadmap">
+  <div class="roadmap-inner">
+    <div class="section-label">Development Roadmap</div>
+    <h2 class="section-title">Future Versions</h2>
+    <p class="section-desc">The roadmap prioritises additions that close the gap between this educational model and full regulatory-grade computational tissue engineering tools.</p>
+    <div class="roadmap-grid">
+      <div class="roadmap-card v1"><div class="rv">V2 — Current</div><div class="rt">Michaelis-Menten + Real Units</div><div class="rd">MM kinetics, µM/mmHg O₂, vessel permeability (Robin BC), tissue presets, 3-D slab correction, operator-splitting for stability.</div><div class="rs">LIVE</div></div>
+      <div class="roadmap-card v2"><div class="rv">V3</div><div class="rt">Spatial Cell Heterogeneity</div><div class="rd">Non-uniform seeding density maps. Cell-type zones within a single construct. Anisotropic D tensors for fibre-reinforced scaffolds.</div><div class="rs">PLANNED</div></div>
+      <div class="roadmap-card v3"><div class="rv">V4</div><div class="rt">Perfusion & Flow Coupling</div><div class="rd">Blood/medium flow rate as boundary condition strength. Axial O₂ depletion along vessel length. Pressure-driven permeability gradients.</div><div class="rs">PLANNED</div></div>
+      <div class="roadmap-card v4"><div class="rv">V5</div><div class="rt">Multi-Species Transport</div><div class="rd">Coupled O₂ / CO₂ / glucose / lactate fields. pH gradient from lactate accumulation. Bicarbonate buffering and acidosis thresholds.</div><div class="rs">PLANNED</div></div>
+      <div class="roadmap-card v5"><div class="rv">V6</div><div class="rt">Angiogenesis & Remodelling</div><div class="rd">VEGF gradient driven by hypoxic cells. Vessel sprouting toward O₂-depleted zones. Scaffold degradation kinetics over days-to-weeks timescales.</div><div class="rs">PLANNED</div></div>
+      <div class="roadmap-card v6"><div class="rv">V7</div><div class="rt">Full 3-D FEM Solver</div><div class="rd">True volumetric finite-element solution. Import CAD scaffold geometry. GPU-accelerated solver. Export to COMSOL/OpenFOAM validation format.</div><div class="rs">PLANNED</div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-logo">BioPrint OxygenLab — Clinical v2</div>
+  <p class="footer-note">Michaelis-Menten oxygen transport model with tissue-specific parameters from peer-reviewed literature. All outputs are model-based results for research and educational use. Not validated for clinical decision-making or regulatory submission. Parameter ranges reflect published values for bioprinted hydrogel scaffolds at 37 °C.</p>
+</footer>
+
+<script>
+// ============================================================
+//  PHYSICAL CONSTANTS
+// ============================================================
+const N=100, DX=25e-6, DT=0.05;         // grid size, cell size (m), timestep (s)
+const ALPHA_O2=1.27;                     // µM per mmHg at 37°C
+const STEPS_PER_FRAME=12, MAX_ITER=8000;
+
+// ============================================================
+//  TISSUE PRESETS (literature-sourced)
+// ============================================================
+const TISSUES={
+  cartilage:{ name:'Articular Cartilage', D:0.8e-9, Qmax:0.7,  Km:1.5, density:25, Chyp:5,  Cnec:0.5, note:'Naturally avascular; adapted to physiologic hypoxia.' },
+  liver:    { name:'Hepatic Construct',   D:1.8e-9, Qmax:6.5,  Km:2.5, density:15, Chyp:10, Cnec:2,   note:'High metabolic demand; pericentral hypoxia is clinically relevant.' },
+  cardiac:  { name:'Cardiac Patch',       D:1.2e-9, Qmax:22,   Km:3.5, density:8,  Chyp:15, Cnec:3,   note:'Highest demand; requires capillary spacing &lt;100 µm.' },
+  msc:      { name:'MSC / Stem Cell',     D:2.0e-9, Qmax:0.4,  Km:1.0, density:5,  Chyp:5,  Cnec:0.5, note:'Low demand; most amenable to avascular or low-density vascularisation.' },
+  custom:   { name:'Custom',              D:1.0e-9, Qmax:2.0,  Km:2.0, density:10, Chyp:8,  Cnec:1,   note:'All parameters are user-adjustable.' },
+};
+
+// ============================================================
+//  STATE
+// ============================================================
+let C=new Float32Array(N*N), vessels=new Uint8Array(N*N), distMap=new Float32Array(N*N);
+let cfg={
+  layout:'none', diam:2,
+  D:0.8e-9, Qmax_cell:0.7, Km:1.5, density:25,
+  Csource:200, Pv:9999, vessel_eff:1.0, Cvessel:200,
+  Chyp:5, Cnec:0.5,
+  Qvol:0,          // µM/s  (computed: Qmax_cell * density)
+  boundary:false, view:'oxygen',
+  thickness:2.0,   // mm
+  tissue:'cartilage',
+};
+let sim={running:false,iter:0,converged:false,rafId:null};
+let drawing=false, lastDraw=null;
+
+function recomputeCfg(){
+  cfg.Qvol=cfg.Qmax_cell * cfg.density;              // µM/s
+  const D_over_DX=cfg.D/DX;
+  cfg.vessel_eff=cfg.Pv>=9000 ? 1.0 : cfg.Pv/(cfg.Pv+D_over_DX);
+  cfg.Cvessel=cfg.Csource*cfg.vessel_eff;
+  updateAncillaryUI();
+}
+
+// ============================================================
+//  VESSEL UTILITIES
+// ============================================================
+function setVR(cy,cx,r){
+  for(let dy=-r;dy<=r;dy++) for(let dx=-r;dx<=r;dx++){
+    if(dx*dx+dy*dy<=r*r){const y=cy+dy,x=cx+dx;if(y>=0&&y<N&&x>=0&&x<N) vessels[y*N+x]=1;}
+  }
+}
+function drawSeg(y0,x0,y1,x1,r){
+  const st=Math.max(Math.abs(y1-y0),Math.abs(x1-x0),1);
+  for(let i=0;i<=st;i++) setVR(Math.round(y0+(y1-y0)*i/st),Math.round(x0+(x1-x0)*i/st),r);
+}
+function applyLayout(layout,diam){
+  vessels.fill(0);
+  const r=Math.max(0,Math.round(diam/2)-1);
+  if(layout==='straight'){for(let i=1;i<=5;i++) drawSeg(0,Math.round(i*N/6),N-1,Math.round(i*N/6),r);}
+  else if(layout==='branching'){
+    function br(y0,x0,ay,ax,len,dep,br2){
+      if(dep<0||len<3) return;
+      const y1=Math.round(y0+ay*len),x1=Math.round(x0+ax*len);
+      drawSeg(y0,x0,y1,x1,br2);
+      const sp=0.55,co=Math.sqrt(1-sp*sp);
+      br(y1,x1,ay*co-ax*sp,ax*co+ay*sp,Math.round(len*.62),dep-1,Math.max(0,br2-1));
+      br(y1,x1,ay*co+ax*sp,ax*co-ay*sp,Math.round(len*.62),dep-1,Math.max(0,br2-1));
+    }
+    br(0,Math.round(N*.25),1,0,Math.round(N*.3),3,r+1);
+    br(0,Math.round(N*.5), 1,0,Math.round(N*.3),3,r+1);
+    br(0,Math.round(N*.75),1,0,Math.round(N*.3),3,r+1);
+    br(N-1,Math.round(N*.5),-1,0,Math.round(N*.3),3,r+1);
+  }
+  else if(layout==='radial'){
+    const cy=Math.round(N/2),cx=Math.round(N/2);
+    setVR(cy,cx,r+3);
+    for(let i=0;i<8;i++){
+      const a=(i/8)*2*Math.PI,sl=Math.round(N*.42);
+      drawSeg(cy,cx,Math.round(cy+Math.sin(a)*sl),Math.round(cx+Math.cos(a)*sl),r);
+      const my=Math.round(cy+Math.sin(a)*sl*.52),mx=Math.round(cx+Math.cos(a)*sl*.52);
+      const ba=a+Math.PI/2,bl=Math.round(N*.17),nb=Math.max(0,r-1);
+      drawSeg(my,mx,Math.round(my+Math.sin(ba)*bl),Math.round(mx+Math.cos(ba)*bl),nb);
+      drawSeg(my,mx,Math.round(my-Math.sin(ba)*bl),Math.round(mx-Math.cos(ba)*bl),nb);
+    }
+  }
+  for(let i=0;i<N*N;i++) if(vessels[i]) C[i]=cfg.Cvessel;
+  computeDistMap();
+}
+function computeDistMap(){
+  distMap.fill(Infinity);
+  const q=[];
+  for(let i=0;i<N*N;i++) if(vessels[i]){distMap[i]=0;q.push(i);}
+  if(cfg.boundary){
+    for(let x=0;x<N;x++){[x,x+(N-1)*N].forEach(i=>{if(!isFinite(distMap[i])){distMap[i]=0;q.push(i);}});}
+    for(let y=1;y<N-1;y++){[y*N,y*N+N-1].forEach(i=>{if(!isFinite(distMap[i])){distMap[i]=0;q.push(i);}});}
+  }
+  let h=0;
+  while(h<q.length){
+    const idx=q[h++],y=Math.floor(idx/N),x=idx%N,d=distMap[idx];
+    [[y-1,x],[y+1,x],[y,x-1],[y,x+1]].forEach(([ny,nx])=>{
+      if(ny>=0&&ny<N&&nx>=0&&nx<N){const nb=ny*N+nx;if(!isFinite(distMap[nb])){distMap[nb]=d+1;q.push(nb);}}
+    });
+  }
+}
+
+// ============================================================
+//  MICHAELIS-MENTEN SIMULATION STEP
+//  Operator splitting: explicit diffusion + implicit consumption
+// ============================================================
+function simStep(){
+  const alpha=cfg.D*DT/(DX*DX);      // must be ≤ 0.25
+  const dt=DT, Qv=cfg.Qvol, Km=cfg.Km;
+  const Cnew=new Float32Array(N*N);
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+    const idx=y*N+x;
+    if(vessels[idx]){Cnew[idx]=cfg.Cvessel;continue;}
+    if(cfg.boundary&&(x===0||x===N-1||y===0||y===N-1)){Cnew[idx]=cfg.Csource;continue;}
+    // Diffusion (explicit)
+    const up=y>0?C[(y-1)*N+x]:C[idx], dn=y<N-1?C[(y+1)*N+x]:C[idx];
+    const lt=x>0?C[y*N+x-1]:C[idx],   rt=x<N-1?C[y*N+x+1]:C[idx];
+    const Cd=C[idx]+alpha*(up+dn+lt+rt-4*C[idx]);
+    // Michaelis-Menten consumption (implicit Euler — unconditionally stable)
+    const Cn=Cd/(1+dt*Qv/(Km+Cd));
+    Cnew[idx]=Cn<0?0:Cn>cfg.Csource?cfg.Csource:Cn;
+  }
+  C=Cnew;
+}
+
+// ============================================================
+//  PLASMA COLORMAP
+// ============================================================
+const PLASMA=[[13,8,135],[84,2,163],[139,10,165],[185,50,137],[219,92,104],[244,136,73],[254,188,43],[240,249,33]];
+function plasmaRGB(t){
+  t=t<0?0:t>1?1:t;
+  const seg=t*(PLASMA.length-1),i=Math.floor(seg),j=Math.min(i+1,PLASMA.length-1),f=seg-i;
+  return[PLASMA[i][0]+f*(PLASMA[j][0]-PLASMA[i][0]),PLASMA[i][1]+f*(PLASMA[j][1]-PLASMA[i][1]),PLASMA[i][2]+f*(PLASMA[j][2]-PLASMA[i][2])];
+}
+
+// ============================================================
+//  RENDERER
+// ============================================================
+function renderFrame(){
+  const canvas=document.getElementById('simCanvas'),ctx=canvas.getContext('2d');
+  const tmp=document.createElement('canvas');tmp.width=N;tmp.height=N;
+  const tctx=tmp.getContext('2d'),img=tctx.createImageData(N,N),d=img.data;
+  let maxDist=0;
+  for(let i=0;i<N*N;i++) if(isFinite(distMap[i])&&distMap[i]>maxDist) maxDist=distMap[i];
+  const Cs=cfg.Csource;
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+    const idx=y*N+x,p=idx*4;
+    if(vessels[idx]){d[p]=160;d[p+1]=230;d[p+2]=255;d[p+3]=255;continue;}
+    let r=0,g=0,b=0;
+    if(cfg.view==='oxygen'){
+      [r,g,b]=plasmaRGB(Cs>0?C[idx]/Cs:0);
+    } else if(cfg.view==='viability'){
+      const c=C[idx];
+      if(c>=cfg.Chyp){r=0;g=200;b=80;}
+      else if(c>=cfg.Cnec){r=255;g=200;b=0;}
+      else{r=255;g=30;b=70;}
+    } else if(cfg.view==='distance'){
+      const dist=isFinite(distMap[idx])?distMap[idx]:maxDist;
+      const t=maxDist>0?1-dist/maxDist:0;
+      r=Math.round(t*10+(1-t)*160);g=Math.round(t*120);b=Math.round(t*220+(1-t)*10);
+    } else {r=8;g=14;b=28;}
+    d[p]=r;d[p+1]=g;d[p+2]=b;d[p+3]=255;
+  }
+  tctx.putImageData(img,0,0);
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(tmp,0,0,canvas.width,canvas.height);
+  drawColorBar();
+}
+
+function drawColorBar(){
+  const canvas=document.getElementById('colorBar'),ctx=canvas.getContext('2d');
+  const grad=ctx.createLinearGradient(0,0,canvas.width,0);
+  if(cfg.view==='oxygen'){
+    PLASMA.forEach((c,i)=>grad.addColorStop(i/(PLASMA.length-1),`rgb(${c[0]},${c[1]},${c[2]})`));
+    document.getElementById('cbMin').textContent='0 µM';
+    document.getElementById('cbMax').textContent=cfg.Csource+' µM';
+  } else if(cfg.view==='viability'){
+    grad.addColorStop(0,'rgb(255,30,70)');grad.addColorStop(0.5,'rgb(255,200,0)');grad.addColorStop(1,'rgb(0,200,80)');
+    document.getElementById('cbMin').textContent='Necrotic';document.getElementById('cbMax').textContent='Viable';
+  } else if(cfg.view==='distance'){
+    grad.addColorStop(0,'rgb(10,120,220)');grad.addColorStop(1,'rgb(160,0,10)');
+    document.getElementById('cbMin').textContent='Near vessel';document.getElementById('cbMax').textContent='Far';
+  } else {
+    grad.addColorStop(0,'#080f1e');grad.addColorStop(1,'rgb(160,230,255)');
+    document.getElementById('cbMin').textContent='Tissue';document.getElementById('cbMax').textContent='Vessel';
+  }
+  ctx.fillStyle=grad;ctx.fillRect(0,0,canvas.width,canvas.height);
+}
+
+// ============================================================
+//  STATISTICS
+// ============================================================
+function computeStats(){
+  let sumO2=0,minO2=cfg.Csource,sumDist=0,maxDist=0,viable=0,hypoxic=0,necrotic=0,tissue=0,vcount=0;
+  for(let i=0;i<N*N;i++){
+    if(vessels[i]){vcount++;continue;}
+    tissue++;
+    const c=C[i],dist=isFinite(distMap[i])?distMap[i]:N;
+    sumO2+=c;if(c<minO2)minO2=c;sumDist+=dist;if(dist>maxDist)maxDist=dist;
+    if(c>=cfg.Chyp) viable++;
+    else if(c>=cfg.Cnec) hypoxic++;
+    else necrotic++;
+  }
+  const t=tissue||1;
+  const avgO2=sumO2/t,avgDist=sumDist/t;
+  const pV=viable/t*100,pH=hypoxic/t*100,pN=necrotic/t*100;
+  const vdens=vcount/(N*N)*100;
+  const supply=vcount>0?avgO2/cfg.Csource:0;
+  const verdict=pV>=90?'PASS':pV>=70?'MODERATE RISK':'FAIL';
+  const vclass=pV>=90?'pass':pV>=70?'warn':'fail';
+  return{avgO2,minO2,avgDist,maxDist,pV,pH,pN,vdens,supply,verdict,vclass,simTimeS:sim.iter*DT};
+}
+
+function updateDashboard(){
+  const s=computeStats();
+  const um=v=>(v*25).toFixed(0)+' µm', fO=v=>v.toFixed(1)+' µM  ('+((v/ALPHA_O2).toFixed(1))+' mmHg)';
+  document.getElementById('pct-viable').textContent=s.pV.toFixed(1)+'%';
+  document.getElementById('pct-hypoxic').textContent=s.pH.toFixed(1)+'%';
+  document.getElementById('pct-necrotic').textContent=s.pN.toFixed(1)+'%';
+  document.getElementById('bar-viable').style.width=s.pV+'%';
+  document.getElementById('bar-hypoxic').style.width=s.pH+'%';
+  document.getElementById('bar-necrotic').style.width=s.pN+'%';
+  const aO=document.getElementById('m-avgO2');
+  aO.textContent=fO(s.avgO2);
+  aO.className='metric-val '+(s.avgO2>cfg.Chyp?'good':s.avgO2>cfg.Cnec?'warn':'bad');
+  const mO=document.getElementById('m-minO2');
+  mO.textContent=fO(s.minO2);
+  mO.className='metric-val '+(s.minO2>cfg.Chyp?'good':s.minO2>cfg.Cnec?'warn':'bad');
+  document.getElementById('m-chyp').textContent=cfg.Chyp+' µM  ('+(cfg.Chyp/ALPHA_O2).toFixed(1)+' mmHg)';
+  document.getElementById('m-cnec').textContent=cfg.Cnec+' µM  ('+(cfg.Cnec/ALPHA_O2).toFixed(1)+' mmHg)';
+  document.getElementById('m-avgDist').textContent=um(s.avgDist);
+  document.getElementById('m-maxDist').textContent=um(s.maxDist);
+  document.getElementById('m-vdens').textContent=s.vdens.toFixed(1)+'%';
+  const r=document.getElementById('m-ratio');
+  r.textContent=s.supply.toFixed(3);
+  r.className='metric-val '+(s.supply>0.5?'good':s.supply>0.2?'warn':'bad');
+  document.getElementById('m-time').textContent=s.simTimeS.toFixed(1)+' s';
+  const vb=document.getElementById('verdictBox');
+  vb.className='verdict-box '+s.vclass;
+  document.getElementById('verdictVal').textContent=s.verdict;
+  update3DPanel();
+  return s;
+}
+
+function updateAncillaryUI(){
+  const lambda_m=cfg.Qvol>0?Math.sqrt(cfg.D*cfg.Km/cfg.Qvol)*1e6:Infinity;
+  document.getElementById('lambdaVal').textContent=isFinite(lambda_m)?lambda_m.toFixed(0)+' µm':'∞  (no consumption)';
+  document.getElementById('qvolVal').textContent=cfg.Qvol.toFixed(2)+' µM/s  (= '+cfg.Qmax_cell+' × '+cfg.density+')';
+  document.getElementById('cvesVal').textContent=cfg.Cvessel.toFixed(1)+' µM  ('+(cfg.Cvessel/ALPHA_O2).toFixed(1)+' mmHg)';
+}
+
+// ============================================================
+//  3-D DEPTH ANALYSIS  (analytical 1-D slab)
+// ============================================================
+function update3DPanel(){
+  if(!sim.iter&&!sim.converged) return;
+  const L=cfg.thickness*1e-3;  // m
+  const lambda_m=cfg.Qvol>0?Math.sqrt(cfg.D*cfg.Km/cfg.Qvol):1e6;
+  const Cs=computeAvgSurfaceO2();  // representative surface C
+  const Cmin=Cs/Math.cosh(L/(2*lambda_m));
+  const viable_depth_m=Cs>cfg.Chyp? Math.min(L/2, lambda_m*Math.acosh(Cs/cfg.Chyp)):0;
+  const frac_viable=Cs>cfg.Chyp?Math.min(1,2*viable_depth_m/L):0;
+  const nec_depth_m=Cmin<cfg.Cnec&&Cs>cfg.Cnec?lambda_m*Math.acosh(Cs/cfg.Cnec):0;
+  const frac_nec=nec_depth_m>0?Math.max(0,1-2*nec_depth_m/L):0;
+  const max_safe=Cs>cfg.Chyp?2*lambda_m*Math.acosh(Cs/cfg.Chyp)*1e3:0;
+
+  document.getElementById('d3-depth').textContent=(viable_depth_m*1e6).toFixed(0)+' µm each side';
+  document.getElementById('d3-depth').className='ds-val '+(viable_depth_m>L/4?'good':'warn');
+  document.getElementById('d3-cmin').textContent=Cmin.toFixed(1)+' µM  ('+(Cmin/ALPHA_O2).toFixed(1)+' mmHg)';
+  document.getElementById('d3-cmin').className='ds-val '+(Cmin>cfg.Chyp?'good':Cmin>cfg.Cnec?'warn':'bad');
+  document.getElementById('d3-viable').textContent=(frac_viable*100).toFixed(1)+'%';
+  document.getElementById('d3-viable').className='ds-val '+(frac_viable>0.9?'good':frac_viable>0.7?'warn':'bad');
+  document.getElementById('d3-necrotic').textContent=(frac_nec*100).toFixed(1)+'%';
+  document.getElementById('d3-necrotic').className='ds-val '+(frac_nec<0.05?'good':frac_nec<0.2?'warn':'bad');
+  document.getElementById('d3-maxthick').textContent=max_safe.toFixed(2)+' mm';
+  document.getElementById('d3-maxthick').className='ds-val '+(max_safe>=cfg.thickness?'good':'bad');
+
+  const verdict_3d=frac_viable>=0.9?'fully viable at this thickness':'necrotic core predicted';
+  document.getElementById('d3-interp').innerHTML=
+    `At <strong>${cfg.thickness.toFixed(1)} mm</strong> thickness with an average surface O₂ of <strong>${Cs.toFixed(1)} µM</strong>, the analytical 1-D model predicts: `+
+    `<strong>${(frac_viable*100).toFixed(1)}%</strong> of construct volume is viable, `+
+    `<strong>${(frac_nec*100).toFixed(1)}%</strong> is predicted necrotic. `+
+    `Maximum safe thickness under current conditions: <strong>${max_safe.toFixed(2)} mm</strong>. `+
+    (max_safe<cfg.thickness?`<strong style="color:var(--red)">Reduce construct thickness or add z-direction vascularisation.</strong>`:
+    `<span style="color:var(--green)">Thickness is within the predicted viable window.</span>`);
+
+  drawDepthProfile(L,lambda_m,Cs);
+}
+
+function computeAvgSurfaceO2(){
+  // Average O2 of tissue cells adjacent to vessels or near outer boundary
+  let sum=0,count=0;
+  for(let i=0;i<N*N;i++){
+    if(!vessels[i]&&isFinite(distMap[i])&&distMap[i]<=2){sum+=C[i];count++;}
+  }
+  return count>0?sum/count:(computeStats().avgO2);
+}
+
+function drawDepthProfile(L,lambda,Cs){
+  const canvas=document.getElementById('depthCanvas'),ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#03060f';ctx.fillRect(0,0,W,H);
+  const pts=80;
+  // Draw concentration profile
+  ctx.beginPath();
+  for(let i=0;i<=pts;i++){
+    const z=(i/pts-0.5)*L;  // -L/2 to L/2
+    const Cz=Cs/Math.cosh(L/(2*lambda))*Math.cosh(z/lambda);
+    const normC=Cz/Cs;
+    const px=i/pts*W;
+    const py=H-(normC*(H-8)+4);
+    i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+  }
+  ctx.strokeStyle='#00ccff';ctx.lineWidth=2;ctx.stroke();
+  // Threshold lines
+  const drawThresh=(Ct,color)=>{
+    if(Ct>Cs) return;
+    const py=H-((Ct/Cs)*(H-8)+4);
+    ctx.beginPath();ctx.moveTo(0,py);ctx.lineTo(W,py);
+    ctx.strokeStyle=color;ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
+  };
+  drawThresh(cfg.Chyp,'rgba(255,200,0,.7)');
+  drawThresh(cfg.Cnec,'rgba(255,50,80,.7)');
+  // Labels
+  ctx.font='9px monospace';ctx.fillStyle='rgba(255,200,0,.8)';ctx.fillText('C_hyp',2,H-(cfg.Chyp/Cs*(H-8)+4)-2);
+  ctx.fillStyle='rgba(255,50,80,.8)';ctx.fillText('C_nec',2,H-(Math.min(cfg.Cnec,Cs*0.98)/Cs*(H-8)+4)-2);
+}
+
+// ============================================================
+//  EXPLANATIONS
+// ============================================================
+function generateExplanations(s){
+  const grid=document.getElementById('expGrid');grid.innerHTML='';
+  const Dn=(cfg.D*1e9).toFixed(1);
+  const lm=cfg.Qvol>0?(Math.sqrt(cfg.D*cfg.Km/cfg.Qvol)*1e6).toFixed(0):'∞';
+  const tname=TISSUES[cfg.tissue]?.name||'Custom tissue';
+  const cards=[
+    {icon:'🔴',title:s.pN>5?'Why did necrosis occur?':'Why is necrosis minimal?',
+     body:s.pN>5
+      ?`<strong>${s.pN.toFixed(1)}%</strong> of tissue fell below the necrosis threshold (${cfg.Cnec} µM, ${(cfg.Cnec/ALPHA_O2).toFixed(1)} mmHg) for <strong>${tname}</strong>. With Q_max = ${cfg.Qmax_cell} nmol/10⁶/s at a density of ${cfg.density}×10⁶/mL, volumetric demand = <strong>${cfg.Qvol.toFixed(1)} µM/s</strong>. The characteristic penetration length λ = <strong>${lm} µm</strong> — cells beyond this distance cannot receive adequate supply even under Michaelis-Menten saturation. Vessel spacing must be reduced below 2λ = ${lm==='∞'?'∞':(2*parseFloat(lm)).toFixed(0)} µm.`
+      :`Only <strong>${s.pN.toFixed(1)}%</strong> of tissue is predicted necrotic. The effective vessel O₂ (${cfg.Cvessel.toFixed(1)} µM) and characteristic length λ = ${lm} µm are well-matched to the current vascular spacing for <strong>${tname}</strong>.`},
+    {icon:'🫀',title:'What did vascular geometry contribute?',
+     body:`Layout: <strong>${cfg.layout==='none'?'No vessels':cfg.layout.charAt(0).toUpperCase()+cfg.layout.slice(1)}</strong>. Vessel density: <strong>${s.vdens.toFixed(1)}%</strong>. Effective vessel O₂ with ${cfg.Pv>=9000?'open channel (no wall resistance)':'vessel wall permeability P_v='+cfg.Pv+' m/s'}: <strong>${cfg.Cvessel.toFixed(1)} µM</strong> (${(100*cfg.vessel_eff).toFixed(0)}% of source concentration).
+     ${cfg.layout==='none'?'Without internal vessels, oxygen transport depends entirely on '+(cfg.boundary?'outer boundary permeation — a geometry that fails rapidly with increasing construct depth.':'no internal source. Only outer boundary O₂ applies.'):''}
+     ${cfg.layout==='straight'?'Parallel channels create periodic O₂ gradients. Maximum inter-vessel distance = '+s.maxDist*25+'µm. For λ = '+lm+' µm, this design '+(parseFloat(lm)>s.maxDist*25/2?'is within the viable penetration depth.':'exceeds the viable penetration depth — vessel spacing is too large.'):''}
+     ${cfg.layout==='branching'?'Hierarchical branching distributes O₂ supply. Average tissue-to-vessel distance: '+( s.avgDist*25).toFixed(0)+' µm. Deeper recursion would further reduce this.':''}
+     ${cfg.layout==='radial'?'Radial geometry leaves wedge-shaped hypoxic zones between spoke tips. Max distance: '+(s.maxDist*25).toFixed(0)+' µm.':''}
+     Average distance to nearest vessel: <strong>${(s.avgDist*25).toFixed(0)} µm</strong>.`},
+    {icon:'🧪',title:'How did diffusion and metabolism interact?',
+     body:`D = <strong>${Dn} × 10⁻⁹ m²/s</strong> · Q_max = ${cfg.Qmax_cell} nmol/10⁶/s · K_m = ${cfg.Km} µM · Density = ${cfg.density}×10⁶/mL · Q_vol = <strong>${cfg.Qvol.toFixed(1)} µM/s</strong>.
+     At high O₂ (near vessels, C ≫ K_m=${cfg.Km}µM): consumption ≈ Q_max = <strong>${cfg.Qvol.toFixed(1)} µM/s</strong> (zero-order, constant drain).
+     At low O₂ (distant tissue, C ≪ K_m): consumption ≈ (Q_max/K_m)·C = <strong>${(cfg.Qvol/cfg.Km).toFixed(2)} s⁻¹</strong> × C (first-order).
+     Average O₂: <strong>${s.avgO2.toFixed(1)} µM</strong> (${(s.avgO2/ALPHA_O2).toFixed(1)} mmHg). Min: <strong>${s.minO2.toFixed(1)} µM</strong> (${(s.minO2/ALPHA_O2).toFixed(1)} mmHg).`},
+    {icon:'💡',title:'What needs to change for clinical viability?',
+     body:(()=>{
+       const recs=[];
+       if(s.pN>5) recs.push(`reduce maximum vessel spacing below <strong>${Math.round(parseFloat(lm)*1.5)} µm</strong> (1.5λ) to prevent necrosis`);
+       if(cfg.vessel_eff<0.7) recs.push(`endothelialise channels to raise P_v — current wall reduces O₂ delivery to ${(cfg.vessel_eff*100).toFixed(0)}% of source`);
+       if(cfg.Csource<100) recs.push(`increase bioreactor O₂ tension — current source (${cfg.Csource} µM) is only ${(cfg.Csource/ALPHA_O2).toFixed(0)} mmHg`);
+       if(s.vdens<2&&cfg.layout!=='none') recs.push('increase channel diameter or branching depth to raise vessel density above 3%');
+       if(s.pV<90) recs.push(`increase vascular coverage — currently only <strong>${s.pV.toFixed(1)}%</strong> viable vs 90% PASS threshold`);
+       const d3L=cfg.thickness*1e-3,lm_m=cfg.Qvol>0?Math.sqrt(cfg.D*cfg.Km/cfg.Qvol):1e6;
+       const avgSurf=computeAvgSurfaceO2();
+       const maxSafe=avgSurf>cfg.Chyp?2*lm_m*Math.acosh(avgSurf/cfg.Chyp)*1e3:0;
+       if(maxSafe<cfg.thickness) recs.push(`reduce construct thickness to ≤ <strong>${maxSafe.toFixed(2)} mm</strong> or add z-direction vascularisation for the chosen ${cfg.thickness.toFixed(1)} mm depth`);
+       return recs.length>0
+        ?`To achieve PASS verdict for <strong>${tname}</strong>: ${recs.join('; ')}. Current verdict: <strong>${s.verdict}</strong> (${s.pV.toFixed(1)}% viable).`
+        :`<span style="color:var(--green)">This configuration achieves PASS (${s.pV.toFixed(1)}% viable) for <strong>${tname}</strong>.</span> Consider whether scaffold material volume can be reduced while maintaining the λ = ${lm} µm supply radius. Verify the 3-D depth panel to confirm viability through the full construct thickness.`;
+     })()},
+  ];
+  cards.forEach(c=>{
+    const el=document.createElement('div');el.className='exp-card fade-in';
+    el.innerHTML=`<div class="exp-card-icon">${c.icon}</div><div class="exp-card-title">${c.title}</div><div class="exp-card-body">${c.body}</div>`;
+    grid.appendChild(el);
+  });
+}
+
+// ============================================================
+//  ANIMATION LOOP
+// ============================================================
+function animLoop(){
+  if(!sim.running) return;
+  for(let i=0;i<STEPS_PER_FRAME;i++){
+    simStep();sim.iter++;
+    if(sim.iter>=MAX_ITER){sim.running=false;sim.converged=true;break;}
+  }
+  renderFrame();
+  document.getElementById('progressBar').style.width=(Math.min(sim.iter/MAX_ITER,1)*100)+'%';
+  document.getElementById('simStatus').textContent=sim.converged
+    ?`Converged — ${sim.iter} steps, ${(sim.iter*DT).toFixed(1)} s simulated`
+    :`Step ${sim.iter}/${MAX_ITER} · ${(sim.iter*DT).toFixed(1)} s simulated`;
+  updateDashboard();
+  if(sim.running) sim.rafId=requestAnimationFrame(animLoop);
+  else generateExplanations(computeStats());
+}
+
+// ============================================================
+//  COMPARE DESIGNS
+// ============================================================
+function runComparison(){
+  const btn=document.getElementById('compareBtn');
+  btn.disabled=true;btn.textContent='Running…';
+  const savedLayout=cfg.layout,savedC=C.slice(),savedV=vessels.slice();
+  const layouts=['none','straight','branching','radial'];
+  const lnames={none:'No Vessels',straight:'Straight Channels',branching:'Branching Network',radial:'Radial Network'};
+  document.getElementById('compareBody').innerHTML='';
+  for(const layout of layouts){
+    cfg.layout=layout;C.fill(0);vessels.fill(0);
+    applyLayout(layout,cfg.diam);
+    for(let i=0;i<4000;i++) simStep();
+    const s=computeStats();
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><strong>${lnames[layout]}</strong></td>
+      <td class="mono ${s.pV>=90?'good':s.pV>=70?'warn':'bad'}">${s.pV.toFixed(1)}%</td>
+      <td class="mono warn">${s.pH.toFixed(1)}%</td>
+      <td class="mono ${s.pN<5?'good':s.pN<20?'warn':'bad'}">${s.pN.toFixed(1)}%</td>
+      <td class="mono ${s.avgO2>cfg.Chyp?'good':s.avgO2>cfg.Cnec?'warn':'bad'}">${s.avgO2.toFixed(1)}</td>
+      <td class="mono ${s.minO2>cfg.Cnec?'warn':'bad'}">${s.minO2.toFixed(1)}</td>
+      <td class="mono">${(s.avgDist*25).toFixed(0)} µm</td>
+      <td class="${s.vclass}">${s.verdict}</td>`;
+    document.getElementById('compareBody').appendChild(tr);
+  }
+  cfg.layout=savedLayout;C=savedC;vessels=savedV;computeDistMap();renderFrame();updateDashboard();
+  btn.disabled=false;btn.textContent='▶ Run All Comparisons';
+}
+
+// ============================================================
+//  CUSTOM DRAW
+// ============================================================
+function canvasXY(e){
+  const canvas=document.getElementById('simCanvas'),rect=canvas.getBoundingClientRect();
+  const cx=e.touches?e.touches[0].clientX:e.clientX,cy=e.touches?e.touches[0].clientY:e.clientY;
+  return{x:Math.floor((cx-rect.left)/rect.width*N),y:Math.floor((cy-rect.top)/rect.height*N)};
+}
+function onDraw(e){
+  if(cfg.layout!=='custom'||!drawing) return;
+  e.preventDefault();
+  const{x,y}=canvasXY(e),r=Math.max(0,cfg.diam/2-1);
+  if(lastDraw) drawSeg(lastDraw.y,lastDraw.x,y,x,r); else setVR(y,x,r);
+  lastDraw={x,y};
+  for(let i=0;i<N*N;i++) if(vessels[i]) C[i]=cfg.Cvessel;
+  computeDistMap();renderFrame();updateDashboard();
+}
+
+// ============================================================
+//  UI INIT
+// ============================================================
+function applyTissuePreset(key){
+  const t=TISSUES[key];if(!t) return;
+  cfg.tissue=key;cfg.D=t.D;cfg.Qmax_cell=t.Qmax;cfg.Km=t.Km;cfg.density=t.density;
+  cfg.Chyp=t.Chyp;cfg.Cnec=t.Cnec;
+  document.getElementById('diffSlider').value=(t.D*1e9).toFixed(2);
+  document.getElementById('diffVal').textContent=(t.D*1e9).toFixed(2)+' × 10⁻⁹ m²/s';
+  document.getElementById('qmaxSlider').value=t.Qmax;
+  document.getElementById('qmaxVal').textContent=t.Qmax;
+  document.getElementById('kmSlider').value=t.Km;
+  document.getElementById('kmVal').textContent=t.Km+' µM';
+  document.getElementById('densitySlider').value=t.density;
+  document.getElementById('densityVal').textContent=t.density+' × 10⁶/mL';
+  document.getElementById('tissueNote').textContent=t.note;
+  recomputeCfg();
+}
+
+function initUI(){
+  const canvas=document.getElementById('simCanvas');
+
+  // Tissue preset
+  document.getElementById('tissueSelect').addEventListener('change',e=>{
+    applyTissuePreset(e.target.value);
+    rebuildVessels();
+  });
+
+  // Cell density
+  document.getElementById('densitySlider').addEventListener('input',e=>{
+    cfg.density=parseInt(e.target.value);
+    document.getElementById('densityVal').textContent=cfg.density+' × 10⁶/mL';
+    recomputeCfg();
+  });
+  // Diffusion slider
+  document.getElementById('diffSlider').addEventListener('input',e=>{
+    cfg.D=parseFloat(e.target.value)*1e-9;
+    document.getElementById('diffVal').textContent=parseFloat(e.target.value).toFixed(2)+' × 10⁻⁹ m²/s';
+    recomputeCfg();
+  });
+  // Qmax slider
+  document.getElementById('qmaxSlider').addEventListener('input',e=>{
+    cfg.Qmax_cell=parseFloat(e.target.value);
+    document.getElementById('qmaxVal').textContent=cfg.Qmax_cell;
+    recomputeCfg();
+  });
+  // Km slider
+  document.getElementById('kmSlider').addEventListener('input',e=>{
+    cfg.Km=parseFloat(e.target.value);
+    document.getElementById('kmVal').textContent=cfg.Km+' µM';
+    recomputeCfg();
+  });
+  // O₂ source
+  document.getElementById('sourceSelect').addEventListener('change',e=>{
+    cfg.Csource=parseFloat(e.target.value);
+    recomputeCfg();rebuildVessels();
+  });
+  // Vessel wall
+  document.getElementById('wallSelect').addEventListener('change',e=>{
+    cfg.Pv=parseFloat(e.target.value);
+    recomputeCfg();rebuildVessels();
+  });
+  // Layout
+  document.getElementById('layoutBtns').addEventListener('click',e=>{
+    const btn=e.target.closest('[data-layout]');if(!btn) return;
+    cfg.layout=btn.dataset.layout;
+    document.querySelectorAll('[data-layout]').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+    document.getElementById('drawHint').style.display=cfg.layout==='custom'?'block':'none';
+    rebuildVessels();
+  });
+  // Diam
+  document.getElementById('diamBtns').addEventListener('click',e=>{
+    const btn=e.target.closest('[data-diam]');if(!btn) return;
+    cfg.diam=parseInt(btn.dataset.diam);
+    document.querySelectorAll('[data-diam]').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+    rebuildVessels();
+  });
+  // Boundary
+  document.getElementById('boundaryToggle').addEventListener('click',()=>{
+    cfg.boundary=!cfg.boundary;
+    document.getElementById('boundaryToggle').classList.toggle('on',cfg.boundary);
+    computeDistMap();updateDashboard();
+  });
+  // View
+  document.getElementById('viewBtns').addEventListener('click',e=>{
+    const btn=e.target.closest('[data-view]');if(!btn) return;
+    cfg.view=btn.dataset.view;
+    document.querySelectorAll('[data-view]').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+    const names={oxygen:'O₂ CONCENTRATION (µM)',viability:'VIABILITY MAP',distance:'DISTANCE MAP',vessels:'VESSEL LAYOUT'};
+    document.getElementById('viewBadge').textContent=names[cfg.view];
+    renderFrame();
+  });
+  // Run/Pause/Reset
+  document.getElementById('runBtn').addEventListener('click',()=>{
+    if(sim.converged){rebuildVessels();sim.iter=0;sim.converged=false;}
+    sim.running=true;cancelAnimationFrame(sim.rafId);
+    document.getElementById('pauseBtn').textContent='PAUSE';
+    document.getElementById('simStatus').textContent='Running Michaelis-Menten simulation…';
+    sim.rafId=requestAnimationFrame(animLoop);
+  });
+  document.getElementById('pauseBtn').addEventListener('click',()=>{
+    sim.running=!sim.running;
+    document.getElementById('pauseBtn').textContent=sim.running?'PAUSE':'RESUME';
+    if(sim.running){cancelAnimationFrame(sim.rafId);sim.rafId=requestAnimationFrame(animLoop);}
+    else generateExplanations(computeStats());
+  });
+  document.getElementById('resetBtn').addEventListener('click',()=>{
+    sim.running=false;sim.iter=0;sim.converged=false;cancelAnimationFrame(sim.rafId);
+    rebuildVessels();
+    document.getElementById('progressBar').style.width='0%';
+    document.getElementById('simStatus').textContent='Ready — press RUN';
+    document.getElementById('pauseBtn').textContent='PAUSE';
+    document.getElementById('expGrid').innerHTML='<div class="exp-placeholder">Run the simulation to generate tissue-specific scientific explanations.</div>';
+    renderFrame();updateDashboard();
+  });
+  // Compare
+  document.getElementById('compareBtn').addEventListener('click',runComparison);
+  // Thickness slider
+  document.getElementById('thickSlider').addEventListener('input',e=>{
+    cfg.thickness=parseFloat(e.target.value);
+    document.getElementById('thickVal').textContent=cfg.thickness.toFixed(1)+' mm';
+    update3DPanel();drawDepthProfile(cfg.thickness*1e-3,cfg.Qvol>0?Math.sqrt(cfg.D*cfg.Km/cfg.Qvol):1e6,computeAvgSurfaceO2());
+  });
+  // Canvas draw
+  canvas.addEventListener('mousedown',e=>{drawing=true;lastDraw=null;onDraw(e);});
+  canvas.addEventListener('mousemove',onDraw);
+  canvas.addEventListener('mouseup',()=>{drawing=false;lastDraw=null;});
+  canvas.addEventListener('mouseleave',()=>{drawing=false;lastDraw=null;});
+  canvas.addEventListener('touchstart',e=>{drawing=true;lastDraw=null;onDraw(e);},{passive:false});
+  canvas.addEventListener('touchmove',onDraw,{passive:false});
+  canvas.addEventListener('touchend',()=>{drawing=false;lastDraw=null;});
+}
+
+function rebuildVessels(){
+  C.fill(0);vessels.fill(0);
+  applyLayout(cfg.layout,cfg.diam);
+  sim.iter=0;sim.converged=false;
+  renderFrame();updateDashboard();
+}
+
+// ============================================================
+//  BOOT
+// ============================================================
+function init(){
+  applyTissuePreset('cartilage');
+  rebuildVessels();
+  initUI();
+  renderFrame();
+  updateDashboard();
+}
+init();
+</script>
+</body>
+</html>
